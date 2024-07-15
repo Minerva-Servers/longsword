@@ -58,6 +58,10 @@ SWEP.Spread.AirMod = 1.2
 SWEP.Spread.RecoilMod = 0.025
 SWEP.Spread.VelocityMod = 0.5
 
+SWEP.Reloading = {}
+SWEP.Reloading.AnimRate = 1
+SWEP.Reloading.AnimRateEmpty = 1
+
 SWEP.IronsightsPos = Vector( -5.9613, -3.3101, 2.706 )
 SWEP.IronsightsAng = Angle( 0, 0, 0 )
 SWEP.IronsightsFOV = 0.8
@@ -103,11 +107,12 @@ function SWEP:OnReloaded()
 	end)
 end
 
-function SWEP:PlayAnim(act)
+function SWEP:PlayAnim(act, rate)
 	local vmodel = self.Owner:GetViewModel()
 	local seq = vmodel:SelectWeightedSequence(act)
 
 	vmodel:SendViewModelMatchingSequence(seq)
+	vmodel:SetPlaybackRate(rate or 1)
 end
 
 function SWEP:PlayAnimWorld(act)
@@ -125,7 +130,7 @@ function SWEP:Deploy()
 		end
 	end
 
-	self:PlayAnim(ACT_VM_DRAW)
+	self:PlayAnim(ACT_VM_DRAW, self.DrawAnimRate or 1)
 	self.Owner:GetViewModel():SetPlaybackRate(1)
 
 	return true
@@ -165,7 +170,7 @@ end
 
 function SWEP:ShootEffects()
 	if not self:GetIronsights() or not self.UseIronsightsRecoil then
-		self:PlayAnim(ACT_VM_PRIMARYATTACK)
+		self:PlayAnim(ACT_VM_PRIMARYATTACK, self.Primary.AnimRate or 1)
 		self:QueueIdle()
 	else
 		self:SetIronsightsRecoil( math.Clamp( 7.5 * (self.IronsightsRecoilVisualMultiplier or 1) * self.Primary.Recoil, 0, 20 ) )
@@ -426,9 +431,9 @@ function SWEP:Reload()
 	self.Owner:DoReloadEvent()
 
 	if not self.DoEmptyReloadAnim or self:Clip1() != 0 then
-		self:PlayAnim(ACT_VM_RELOAD)
+		self:PlayAnim(ACT_VM_RELOAD, self.Reloading.AnimRate or 1)
 	else
-		self:PlayAnim(ACT_VM_RELOAD_EMPTY)
+		self:PlayAnim(ACT_VM_RELOAD_EMPTY, self.Reloading.AnimRateEmpty or self.Reloading.AnimRate or 1)
 	end
 	self:QueueIdle()
 
@@ -439,7 +444,7 @@ function SWEP:Reload()
 	end
 
 	self:SetReloading( true )
-	self:SetReloadTime( CurTime() + self.Owner:GetViewModel():SequenceDuration() )
+	self:SetReloadTime( CurTime() + self.Owner:GetViewModel():SequenceDuration() / self.Reloading.AnimRateEmpty or self.Reloading.AnimRate or 1 )
 end
 
 function SWEP:ReloadThink()
@@ -483,12 +488,13 @@ function SWEP:CalculateSpread()
 	return spread
 end
 
-
-function SWEP:HasAttachment(name)
-	return (self:GetCurAttachment() or "") == name
-end
-
 local wepMeta = FindMetaTable("Weapon")
+
+function wepMeta:HasAttachment(name)
+	local current = self:GetCurAttachment()
+
+	return ix.util.StringMatches(current, name)
+end
 
 function wepMeta:GiveAttachment(name)
 	if not self.Attachments or not self.Attachments[name] then
@@ -594,6 +600,10 @@ function SWEP:PreDrawViewModel(vm)
 end
 
 function SWEP:ViewModelDrawn()
+	if self.ExtraViewModelDrawn then
+		self.ExtraViewModelDrawn(self)
+	end
+
 	local vm = self.Owner:GetViewModel()
 
 	if not IsValid(vm) then
@@ -691,20 +701,14 @@ function SWEP:DrawWorldModel()
 	ang:RotateAroundAxis(ang:Right(), w.Ang.p)
 	ang:RotateAroundAxis(ang:Forward(), w.Ang.r)
 	att:SetAngles(ang)
-	--att:DrawModel()
+	att:DrawModel()
 end
 
-hook.Add("PostPlayerDraw", "longswordDrawWorldAttachment", function()
-	local wep = LocalPlayer():GetActiveWeapon()
+hook.Add("PostPlayerDraw", "longswordDrawWorldAttachment", function(ply)
+	local wep = ply:GetActiveWeapon()
 
 	if not IsValid(wep) then
 		return
-	end
-
-	if IsValid(wep.worldAttachment) then
-		wep.worldAttachment:DrawModel()
-		wep.worldAttachment:SetRenderOrigin()
-		wep.worldAttachment:SetRenderAngles()
 	end
 end)
 
@@ -913,7 +917,7 @@ function SWEP:DrawHUD()
 		return
 	end
 
-	if self:HasAttachment("") then
+	if self:GetCurAttachment() == "" then
 		if self.scopedIn then
 			self.scopedIn = false
 		end

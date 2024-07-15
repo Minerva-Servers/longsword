@@ -43,8 +43,15 @@ function SWEP:PrimaryAttack()
 
 	if self:Clip1() < 1 then
 		if self.PairedItem then
-			if self.Owner:HasInventoryItemSpecific(self.PairedItem) then
-				self.Owner:TakeInventoryItem(self.PairedItem)
+			if impulse then
+				if self.Owner:HasInventoryItemSpecific(self.PairedItem) then
+					self.Owner:TakeInventoryItem(self.PairedItem)
+				end
+			elseif ix then
+				local item = self.Owner:GetCharacter():GetInventory():HasItem(self.PairedItem, {["equip"] = true})
+				if item then
+					item:Unequip(self.Owner, false, true)
+				end
 			end
 		else
 			self.Owner:StripWeapon(self:GetClass())
@@ -137,4 +144,8 @@ function SWEP:ThrowAttack()
 
 	phys:ApplyForceCenter(self.Owner:GetAimVector() * force * 2 + Vector(0, 0, 0))
 	phys:AddAngleVelocity(Vector(math.random(-500, 500), math.random(-500, 500), math.random(-500, 500)))
+
+	if self.ExtraThrowAttack then
+		self:ExtraThrowAttack(projectile)
+	end
 end
