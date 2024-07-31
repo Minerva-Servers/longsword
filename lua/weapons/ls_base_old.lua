@@ -142,7 +142,7 @@ function SWEP:ShootBullet(damage, num_bullets, aimcone)
 	bullet.Num 	= num_bullets
 	bullet.Src 	= self.Owner:GetShootPos() -- Source
 	bullet.Dir 	= self.Owner:GetAimVector() -- Dir of bullet
-	bullet.Spread 	= Vector(aimcone, aimcone, 0)	-- Aim Cone
+	bullet.Spread 	= Vector(aimcone, aimcone, aimcone)	-- Aim Cone
 
 	if self.Primary.Tracer then
 		bullet.TracerName = self.Primary.Tracer
@@ -484,6 +484,8 @@ function SWEP:CalculateSpread()
 	if CLIENT then
 		self.LastSpread = spread
 	end
+
+	spread = spread / 2
 
 	return spread
 end
