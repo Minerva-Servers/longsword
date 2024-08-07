@@ -636,7 +636,7 @@ function SWEP:ViewModelDrawn()
 
 	local att = self.AttachedCosmetic
 	local c = attData.Cosmetic
-	local bone = vm:LookupBone(c.Bone)
+	local bone = c.Bone and vm:LookupBone(c.Bone) or vm:LookupBone("ValveBiped.Bip01_R_Hand")
 
 	if not bone then
 		return
@@ -693,8 +693,8 @@ function SWEP:DrawWorldModel()
 		return
 	end
 
-	local bone = w.Bone and vm:LookupBone(w.Bone) or self:LookupBone("ValveBiped.Bip01_R_Hand")
-	local m = vm:GetBoneMatrix(bone)
+	local bone = w.Bone and self:LookupBone(w.Bone) or self:LookupBone("ValveBiped.Bip01_R_Hand")
+	local m = self:GetBoneMatrix(bone)
 
 	local pos, ang = m:GetTranslation(), m:GetAngles()
 	
@@ -712,6 +712,48 @@ hook.Add("PostPlayerDraw", "longswordDrawWorldAttachment", function(ply)
 	if not IsValid(wep) then
 		return
 	end
+
+	if not wep.IsLongsword then
+		return
+	end
+
+	local attachment = wep:GetCurAttachment()
+
+	if not wep.Attachments or not wep.Attachments[attachment] or not wep.Attachments[attachment].Cosmetic then
+		return
+	end
+
+	local attData = wep.Attachments[attachment]
+
+	if not IsValid(wep.worldAttachment) then
+		wep.worldAttachment = ClientsideModel(attData.Cosmetic.Model, RENDERGROUP_TRANSLUCENT)
+		wep.worldAttachment:SetParent(wep)
+		wep.worldAttachment:SetNoDraw(true)
+
+		if attData.Cosmetic.Scale then
+			wep.worldAttachment:SetModelScale(attData.Cosmetic.Scale)
+		end
+	end
+
+	local att = wep.worldAttachment
+	local c = attData.Cosmetic
+	local w = c.World
+
+	if not w then
+		return
+	end
+
+	local bone = w.Bone and ply:LookupBone(w.Bone) or ply:LookupBone("ValveBiped.Bip01_R_Hand")
+	local m = ply:GetBoneMatrix(bone)
+
+	local pos, ang = m:GetTranslation(), m:GetAngles()
+
+	att:SetPos(pos + ang:Forward() * w.Pos.x + ang:Right() * w.Pos.y + ang:Up() * w.Pos.z)
+	ang:RotateAroundAxis(ang:Up(), w.Ang.y)
+	ang:RotateAroundAxis(ang:Right(), w.Ang.p)
+	ang:RotateAroundAxis(ang:Forward(), w.Ang.r)
+	att:SetAngles(ang)
+	att:DrawModel()
 end)
 
 local sway = 1.5
